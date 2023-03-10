@@ -68,26 +68,28 @@ def plot_pcd(pcd, ax_lim=None, path=None):
 
     plt.show()
     if path is not None: plt.savefig(f"./imgs/{path}.png")
+    plt.clf()
 
 
-def compare_pcd(points1, points2, label1='original', label2='corrupted', path=None):
-    if not isinstance(points1, np.ndarray):
-        points1 = np.asarray(points1.points)    # (16384*3)
-        points2 = np.asarray(points2.points)
+def compare_pcd(pcds, labels=None, path=None):
+    if labels is None: 
+        labels = ['Original', 'Corrupted', 'Recovered']
+
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
 
     ax.set_xlim3d([-3,3]), ax.set_ylim3d([-3,3]), ax.set_zlim3d([-3,3])
     ax.set_proj_type('persp')
 
-    ax.scatter(points1[:, 0], points1[:, 2], points1[:, 1],
-               marker='.', alpha=0.5, edgecolors='none', label=label1)
-    ax.scatter(points2[:, 0], points2[:, 2], points2[:, 1],
-               marker='.', alpha=0.2, edgecolors='none',label=label2)
+    for points, label in zip(pcds, labels):
+        ax.scatter(points[:, 0], points[:, 2], points[:, 1],
+                marker='.', alpha=0.5, edgecolors='none', label=label)
+
     plt.legend()
     
 
     plt.show()
     if path is not None:
         if path is not None: plt.savefig(f"./imgs/{path}.png")
+    plt.clf()
         
