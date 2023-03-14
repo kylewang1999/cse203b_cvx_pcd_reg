@@ -2,6 +2,14 @@ import numpy as np, open3d as o3d, matplotlib.pyplot as plt
 
 
 
+''' Error Metrics '''
+
+def mse(X, Y):
+    pass
+
+
+
+
 ''' -------- Arithmetic --------'''
 def skew_sym(x):    
     ''' Given a vector x, apply skew-symmetric operator '''
@@ -19,6 +27,7 @@ def vec_to_rot(R0, w):
 
 
 
+
 ''' --------- Transformation ---------'''
 
 def get_rand_rotation():
@@ -29,10 +38,10 @@ def get_rand_rotation():
     angles = np.random.uniform(-np.pi/2, np.pi/2, size=3)
     return mesh.get_rotation_matrix_from_xyz(angles)
 
-def get_rand_translation():
+def get_rand_translation(distance=1):
     ''' Get a random (3,) translation vector as np.array ''' 
-    print()
-    return np.random.uniform(size=3)
+    t = np.random.uniform(low=-1, high=1, size=3)
+    return (t / np.linalg.norm(t)) * distance
 
 def get_rand_transform():
     ''' Get a (4, 4) general transformation matrix in SE(3)'''
@@ -75,7 +84,8 @@ def compare_pcd(pcds, labels=None, path=None):
     if labels is None: 
         labels = ['Original', 'Corrupted', 'Recovered']
 
-    fig = plt.figure()
+    dpi = 150
+    fig = plt.figure(figsize=(1440*2/dpi, 720*2/dpi), dpi=dpi)
     ax = fig.add_subplot(projection='3d')
 
     ax.set_xlim3d([-3,3]), ax.set_ylim3d([-3,3]), ax.set_zlim3d([-3,3])

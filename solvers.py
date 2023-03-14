@@ -14,8 +14,14 @@ class LinearRelaxationSolver:
         '''
         Return 
             - R0: Optimal rotation (that's iteratively optimized)
+            - t : Optimal translation
         '''
         assert X.shape[0] == 3, f"X should have shape (3,N), but instead got {X.shape}"
+
+        meanX, meanY = np.mean(X, axis=1), np.mean(Y, axis=1)
+        t = meanY - meanX       
+        X = (X.T + t).T
+
         for _ in tqdm(range(200)):
             A = -np.concatenate([self.R0 @ skew_sym(x) for x in X.T])    # (N*3, 3)
             B = np.concatenate([y- self.R0@x for x,y in zip(X.T, Y.T)])  # (N*3, )
@@ -34,7 +40,10 @@ class LinearRelaxationSolver:
             
             R = vec_to_rot(self.R0, w)
             self.R0 = R
-        return self.R0
+
+        t = meanY - (self.R0 @ meanX)
+
+        return self.R0, t
 
 
 class LeastSquareSolver:
@@ -46,6 +55,7 @@ class LeastSquareSolver:
             - R: Optimal rotation 
             - t: Optimal translation
         '''
+        assert X.shape[0] == 3, f"X should have shape (3,N), but instead got {X.shape}"
         meanX, meanY = np.mean(X, axis=1), np.mean(Y, axis=1)
         X = (X.T - meanX).T   # (3, N)
         Y = (Y.T - meanY).T   # (3, N)
@@ -57,37 +67,28 @@ class LeastSquareSolver:
             R = U @ Vh
         t = meanY - (R @ meanX)
         return R, t
-    
-    # def solve(self, src, tgt):
-    #     src = src.T
-    #     tgt = tgt.T
-    #     # 1. Produce mean-subtracted P, Q matrices from src, tgt
-    #     src_mean, tgt_mean = np.mean(src, axis=0), np.mean(tgt, axis=0)     # (3,)
-    #     src = src - src_mean   # (n, 3)
-    #     tgt = tgt - tgt_mean   # (n, 3)
-    #     P, Q = src.T, tgt.T    # (3, n)
-
-    #     # 2. Perform singular value decomposition
-    #     M = Q @ P.T    # (3, 3) = (3, n) * (n, 3)
-    #     U, S, Vh = np.linalg.svd(M)
-
-    #     # 3. Compute rotation from SVD result
-    #     R_ = U @ Vh
-    #     if np.linalg.det(R_) == -1:
-    #         Vh[-1, :] = -Vh[-1, :]
-    #         R_ = U @ Vh
-
-    #     # 4. Compute translation
-    #     t_ = tgt_mean - (R_ @ src_mean)
-
-    #     # 5. Update initial R, t
-    #     # R = R_ @ R
-    #     # t = R_ @ t  + t_
-
-    #     return R_, t_
-        
 
 
 
 class ConvexRelaxationSolver:
-    pass
+    # Ref: https://arxiv.org/pdf/1401.3700.pdf
+
+    def solve(self, X, Y):
+        
+        R = cp.Variable((3,3))
+        t = cp.Variable(3)
+
+        constraints = [ 1+R[0][0]+R[1][1]+R[2][2] >= 0, R[2][1]-R[1][2] >= 0, R[0][2]-R[2][0] >= 0, R[1][0]-R[0][1] >= 0, \
+                        1+R[0][0]-R[1][1]-R[2][2] >= 0, R[1][0]+R[0][1] >= 0, R[0][2]+R[2][0] >= 0, \
+                        1-R[0][0]+R[1][1]-R[2][2] >= 0, R[2][1]+R[1][2] >=0, \
+                        1-R[0][0]-R[1][1]+R[2][2] >= 0 ]
+        prob = cp.Problem(
+            cp.Minimize(cp.norm((R@X.T+t - Y.T), p='fro')), 
+            constraints
+        )
+
+        prob.solve()
+        R = R.value
+        t = t.value
+
+        return R, t
