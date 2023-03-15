@@ -86,7 +86,6 @@ class ConvexRelaxationSolver:
         ])
         constraints = [C >> 0]
 
-
         prob = cp.Problem(
             cp.Minimize(cp.norm(( r @ X+ cp.vstack([t for _ in range(X.shape[1])]).T - Y), p='fro')), 
             # cp.Minimize(cp.norm(( X.T @ r + t - Y.T), p='fro')), 
