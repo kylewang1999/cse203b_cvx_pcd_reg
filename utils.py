@@ -2,12 +2,13 @@ import numpy as np, open3d as o3d, matplotlib.pyplot as plt
 
 
 
-''' Error Metrics '''
-
-def mse(X, Y):
-    pass
-
-
+''' -------- Experiment Helper -------- '''
+def sample_pcd(X, num_samples=None):
+    assert X.shape[0] == 3, f"X should have shape (3, N), but instead got {X.shape}"
+    if num_samples is None: return X
+    
+    idx = np.random.randint(low = 0, high = X.shape[1], size = num_samples)
+    return X[:,idx]
 
 
 ''' -------- Arithmetic --------'''
@@ -24,7 +25,9 @@ def vec_to_rot(R0, w):
     compute new rotation matrix'''
     return R0 @ (np.eye(3) + skew_sym(w))
 
+def mse(X, Y): return np.mean((X-Y)**2)
 
+def sse(X,Y): return np.sum((X-Y)**2)
 
 
 
@@ -84,8 +87,8 @@ def compare_pcd(pcds, labels=None, path=None):
     if labels is None: 
         labels = ['Original', 'Corrupted', 'Recovered']
 
-    dpi = 150
-    fig = plt.figure(figsize=(1440*2/dpi, 720*2/dpi), dpi=dpi)
+    dpi = 80
+    fig = plt.figure(figsize=(1440/dpi, 720/dpi), dpi=dpi)
     ax = fig.add_subplot(projection='3d')
 
     ax.set_xlim3d([-3,3]), ax.set_ylim3d([-3,3]), ax.set_zlim3d([-3,3])

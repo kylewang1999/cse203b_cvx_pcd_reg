@@ -75,20 +75,26 @@ class ConvexRelaxationSolver:
 
     def solve(self, X, Y):
         
-        R = cp.Variable((3,3))
+        r = cp.Variable((3,3))
         t = cp.Variable(3)
 
-        constraints = [ 1+R[0][0]+R[1][1]+R[2][2] >= 0, R[2][1]-R[1][2] >= 0, R[0][2]-R[2][0] >= 0, R[1][0]-R[0][1] >= 0, \
-                        1+R[0][0]-R[1][1]-R[2][2] >= 0, R[1][0]+R[0][1] >= 0, R[0][2]+R[2][0] >= 0, \
-                        1-R[0][0]+R[1][1]-R[2][2] >= 0, R[2][1]+R[1][2] >=0, \
-                        1-R[0][0]-R[1][1]+R[2][2] >= 0 ]
+        C = cp.bmat([
+            [1 + r[0][0] + r[1][1] + r[2][2], r[2][1] - r[1][2], r[0][2] - r[2][0], r[1][0] - r[0][1]],
+            [r[2][1] - r[1][2], 1 + r[0][0] - r[1][1] - r[2][2], r[1][0] + r[0][1], r[0][2] + r[2][0]],
+            [r[0][2] - r[2][0], r[1][0] + r[0][1], 1 - r[0][0] + r[1][1] - r[2][2], r[2][1] + r[1][2]],
+            [r[1][0] - r[0][1], r[0][2] + r[2][0], r[2][1] + r[1][2], 1 - r[0][0] - r[1][1] + r[2][2]]
+        ])
+        constraints = [C >> 0]
+
+
         prob = cp.Problem(
-            cp.Minimize(cp.norm((R@X.T+t - Y.T), p='fro')), 
+            cp.Minimize(cp.norm(( r @ X+ cp.vstack([t for _ in range(X.shape[1])]).T - Y), p='fro')), 
+            # cp.Minimize(cp.norm(( X.T @ r + t - Y.T), p='fro')), 
             constraints
         )
 
         prob.solve()
-        R = R.value
+        r = r.value
         t = t.value
 
-        return R, t
+        return r, t
