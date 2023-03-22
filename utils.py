@@ -1,5 +1,5 @@
 import numpy as np, open3d as o3d, matplotlib.pyplot as plt
-
+from sklearn.neighbors import NearestNeighbors
 
 
 ''' -------- Experiment Helper -------- '''
@@ -9,6 +9,48 @@ def sample_pcd(X, num_samples=None):
     
     idx = np.random.randint(low = 0, high = X.shape[1], size = num_samples)
     return X[:,idx]
+
+def find_nn_corr(src, tgt):
+    ''' Given two input point clouds, find nearest-neighbor correspondence (from source to target) 
+    Input:
+        - src: Source point cloud (n*3), either array or open3d pcd
+        - tgt: Target point cloud (n*3), either array or open3d pcd
+    Output:
+        - idxs: Array indices corresponds to src points, 
+            array elements corresponds to nn in tgt points (n, np.array)
+    '''
+
+    ''' Way1: Sklearn'''
+    if src.shape[1] != 3: src = src.T
+    if tgt.shape[1] != 3: tgt = tgt.T
+    
+    if not isinstance(src, np.ndarray):
+        src = np.asarray(src.points)    # (16384*3)
+        tgt = np.asarray(tgt.points)
+    
+    neighbors = NearestNeighbors(n_neighbors=1, algorithm='kd_tree').fit(tgt)
+    dists, idxs = neighbors.kneighbors(src)  # (16384*1), (16384*1)
+    return idxs.flatten()
+
+
+def pcd_to_o3d(pcd):
+    ''' Convert np array (n,3) to open3d pcd'''
+    points = o3d.utility.Vector3dVector(pcd.reshape([-1, 3]))
+    points_o3d = o3d.geometry.PointCloud()
+    points_o3d.points = points
+    return points_o3d
+
+
+def pcd_to_o3d_rgb(pcd, rgb):
+    ''' Convert np array (n,3) to open3d pcd'''
+    points = o3d.utility.Vector3dVector(pcd.reshape([-1, 3]))
+    colors = o3d.utility.Vector3dVector(
+        rgb.reshape([-1, 3]))  # TODO: What's this
+    pcd_o3d = o3d.geometry.PointCloud()
+    pcd_o3d.points = points
+    pcd_o3d.colors = colors
+    return pcd_o3d
+
 
 
 ''' -------- Arithmetic --------'''

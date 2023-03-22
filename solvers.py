@@ -1,7 +1,9 @@
-import numpy as np, cvxpy as cp
+import copy, numpy as np, cvxpy as cp
 from numpy.linalg import *
 from tqdm import tqdm
+
 from utils import *
+
 
 
 ''' Solvers for PCD Registration prooblem '''
@@ -22,7 +24,7 @@ class LinearRelaxationSolver:
         t = meanY - meanX       
         X = (X.T + t).T
 
-        for _ in tqdm(range(200)):
+        for _ in (range(50)):
             A = -np.concatenate([self.R0 @ skew_sym(x) for x in X.T])    # (N*3, 3)
             B = np.concatenate([y- self.R0@x for x,y in zip(X.T, Y.T)])  # (N*3, )
 
@@ -39,6 +41,9 @@ class LinearRelaxationSolver:
             except Exception: break
             
             R = vec_to_rot(self.R0, w)
+
+            if (np.linalg.norm(self.R0-R) < 1e-6):
+                break
             self.R0 = R
 
         t = meanY - (self.R0 @ meanX)
@@ -69,11 +74,11 @@ class LeastSquareSolver:
         return R, t
 
 
-
 class ConvexRelaxationSolver:
+    
     # Ref: https://arxiv.org/pdf/1401.3700.pdf
 
-    def solve(self, X, Y):
+    def solve(self, X, Y, max_iters=50):
         
         r = cp.Variable((3,3))
         t = cp.Variable(3)
@@ -87,13 +92,50 @@ class ConvexRelaxationSolver:
         constraints = [C >> 0]
 
         prob = cp.Problem(
-            cp.Minimize(cp.norm(( r @ X+ cp.vstack([t for _ in range(X.shape[1])]).T - Y), p='fro')), 
+            cp.Minimize(cp.norm(( r @ X + cp.vstack([t for _ in range(X.shape[1])]).T - Y), p='fro')), 
             # cp.Minimize(cp.norm(( X.T @ r + t - Y.T), p='fro')), 
             constraints
         )
 
-        prob.solve()
+        opt = prob.solve(solver='SCS', max_iters=max_iters, verbose=False)
         r = r.value
         t = t.value
 
+        if np.linalg.norm(r@r.T-np.eye(3)) > 1e-3:
+            u,s,vh = np.linalg.svd(r)
+            r = u @ vh
+
         return r, t
+
+
+
+
+def icp(solver, src, tgt, iters=10):
+    '''(self-implemented) Iterative closest point to align src and tgt point clouds
+    Input:
+        - solver: used for each iteration. Choose from the above 3
+        - src, tgt: Open3d point clouds (3, N)
+    '''
+    if src.shape[0] != 3: src = src.T
+    if tgt.shape[0] != 3: tgt = tgt.T
+
+    ''' Initialized `R, t, trans_pred` '''
+    # trans_pred = init_transformation(src, tgt,init_trans=init_trans, translate_only=True)  
+
+    R, t = np.eye(3), np.zeros(3)
+
+    for _ in tqdm(range(iters)):
+
+        src_ = ((R @ copy.deepcopy(src)).T + t).T
+        corr = find_nn_corr(src_, tgt)                  # Find correspondence
+
+        R_, t_ = solver.solve(src_, tgt[:, corr])       # Align
+
+        if (np.linalg.norm(R_-R) < 1e-6):
+            break
+
+        R = R_ @ R              # Update `R, t, trans_pred`
+        t = R_ @ t + t_
+        compare_pcd([tgt.T, src_.T])
+
+    return R, t
